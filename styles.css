@@ -10,11 +10,12 @@ body {
     background: linear-gradient(135deg, #1a1a2e, #16213e);
     color: #ffffff;
     min-height: 100vh;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 #game-container {
-    height: 100vh;
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
 }
@@ -367,10 +368,13 @@ body {
     display: flex;
     gap: 1rem;
     justify-content: center;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.3);
+    border-top: 2px solid #ff6b35;
 }
 
 .action-btn {
-    padding: 0.8rem 2rem;
+    padding: 1rem 2.5rem;
     background: linear-gradient(145deg, #ff6b35, #ff5722);
     border: none;
     border-radius: 25px;
@@ -378,7 +382,19 @@ body {
     font-weight: bold;
     cursor: pointer;
     transition: all 0.2s ease;
-    font-size: 1rem;
+    font-size: 1.1rem;
+    text-transform: uppercase;
+    box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
+}
+
+#end-turn-btn {
+    background: linear-gradient(145deg, #27ae60, #2ecc71);
+    animation: pulse-green 2s ease-in-out infinite;
+}
+
+@keyframes pulse-green {
+    0%, 100% { transform: scale(1); box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3); }
+    50% { transform: scale(1.05); box-shadow: 0 6px 20px rgba(39, 174, 96, 0.5); }
 }
 
 .action-btn:hover {

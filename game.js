@@ -29,18 +29,18 @@ class Game {
     }
     
     initializeDeck() {
-        // Starting deck - basic MMA moves with position requirements
+        // Simplified starting deck - focus on core combat
         const startingCards = [
-            { name: "Jab", type: "standup", cost: 1, damage: 6, description: "Quick straight punch", positions: ["standing"] },
-            { name: "Jab", type: "standup", cost: 1, damage: 6, description: "Quick straight punch", positions: ["standing"] },
-            { name: "Hook", type: "standup", cost: 2, damage: 10, description: "Powerful curved punch", positions: ["standing"] },
-            { name: "Low Kick", type: "standup", cost: 2, damage: 8, description: "Targets opponent's legs", positions: ["standing"] },
-            { name: "Double Leg", type: "takedown", cost: 2, damage: 7, description: "Takedown attempt - Go to Ground", positions: ["standing"], effect: "takedown" },
-            { name: "Guard", type: "neither", cost: 1, damage: 0, description: "Block 5 damage this turn", effect: "block_5", positions: ["standing", "ground"] },
-            { name: "Rest", type: "neither", cost: 0, damage: 0, description: "Gain 1 energy", effect: "gain_energy_1", positions: ["standing", "ground"] },
-            { name: "Sprawl", type: "takedown", cost: 1, damage: 4, description: "Counter takedown attempt", positions: ["standing"] },
-            { name: "Ground Strike", type: "ground", cost: 1, damage: 5, description: "Strike from the ground", positions: ["ground"] },
-            { name: "Stand Up", type: "standup", cost: 2, damage: 3, description: "Get back to standing - Go to Standing", positions: ["ground"], effect: "standup" }
+            { name: "Jab", type: "strike", cost: 1, damage: 6, description: "Quick straight punch" },
+            { name: "Jab", type: "strike", cost: 1, damage: 6, description: "Quick straight punch" }, 
+            { name: "Hook", type: "strike", cost: 2, damage: 10, description: "Powerful curved punch" },
+            { name: "Low Kick", type: "strike", cost: 2, damage: 8, description: "Targets opponent's legs" },
+            { name: "Guard", type: "defense", cost: 1, damage: 0, description: "Block 5 damage this turn", effect: "block_5" },
+            { name: "Guard", type: "defense", cost: 1, damage: 0, description: "Block 5 damage this turn", effect: "block_5" },
+            { name: "Rest", type: "utility", cost: 0, damage: 0, description: "Gain 1 energy", effect: "gain_energy_1" },
+            { name: "Counter", type: "strike", cost: 2, damage: 7, description: "Quick counter attack" },
+            { name: "Stand Up", type: "utility", cost: 1, damage: 2, description: "Get back to standing position", effect: "standup", requiresPosition: "ground" },
+            { name: "Sprawl", type: "defense", cost: 1, damage: 3, description: "Defend against takedowns", effect: "block_3" }
         ];
         
         this.player.deck = [...startingCards];
@@ -217,19 +217,19 @@ class Game {
         cardDiv.className = 'card';
         cardDiv.dataset.index = index;
         
-        // Check if card can be played (energy + position requirements)
+        // Simplified position checking
         const hasEnergy = this.player.energy >= card.cost;
-        const hasPosition = !card.positions || card.positions.includes(this.fightPosition);
+        const hasPosition = !card.requiresPosition || card.requiresPosition === this.fightPosition;
         const canPlay = hasEnergy && hasPosition;
         
         if (!canPlay) {
             cardDiv.classList.add('disabled');
         }
         
-        // Add position indicator if card has position requirements
+        // Add position indicator only for position-specific cards
         let positionInfo = '';
-        if (card.positions && card.positions.length < 2) {
-            positionInfo = ` (${card.positions[0].toUpperCase()})`;
+        if (card.requiresPosition) {
+            positionInfo = ` (${card.requiresPosition.toUpperCase()} ONLY)`;
         }
         
         cardDiv.innerHTML = `
@@ -308,17 +308,39 @@ class Game {
                 this.player.effects.push({ type: 'block', value: 5, duration: 1 });
                 this.logMessage("Blocking 5 damage this turn!");
                 break;
+            case 'block_3':
+                this.player.effects.push({ type: 'block', value: 3, duration: 1 });
+                this.logMessage("Blocking 3 damage this turn!");
+                break;
+            case 'block_8':
+                this.player.effects.push({ type: 'block', value: 8, duration: 1 });
+                this.logMessage("Blocking 8 damage this turn!");
+                break;
             case 'gain_energy_1':
                 this.player.energy = Math.min(this.player.maxEnergy, this.player.energy + 1);
                 this.logMessage("Gained 1 energy!");
                 break;
-            case 'takedown':
-                this.fightPosition = 'ground';
-                this.logMessage("Fight moved to the GROUND!");
+            case 'gain_energy_2':
+                this.player.energy = Math.min(this.player.maxEnergy, this.player.energy + 2);
+                this.logMessage("Gained 2 energy!");
+                break;
+            case 'heal_8':
+                this.player.health = Math.min(this.player.maxHealth, this.player.health + 8);
+                this.logMessage("Restored 8 health!");
+                break;
+            case 'draw_2':
+                for (let i = 0; i < 2 && this.player.deck.length > 0; i++) {
+                    this.player.hand.push(this.player.deck.shift());
+                }
+                this.logMessage("Drew 2 cards!");
                 break;
             case 'standup':
-                this.fightPosition = 'standing';
-                this.logMessage("Fight moved to STANDING!");
+                if (this.fightPosition === 'ground') {
+                    this.fightPosition = 'standing';
+                    this.logMessage("Got back to standing position!");
+                } else {
+                    this.logMessage("Already standing!");
+                }
                 break;
         }
     }
@@ -365,16 +387,21 @@ class Game {
     }
     
     endTurn() {
-        // Allow ending turn even without playing cards (pass turn)
+        // Make turn ending simple and always work
+        this.logMessage("--- End of your turn ---");
         this.currentTurn = 'enemy';
         this.updateUI();
         
-        // Brief pause to show enemy turn, then execute
+        // Brief pause to show enemy turn
         setTimeout(() => {
-            this.opponentTurn();
+            if (this.opponent.health > 0) {
+                this.opponentTurn();
+            }
             
             // Generate new enemy intent for next turn
-            this.generateEnemyIntent();
+            if (this.opponent.health > 0) {
+                this.generateEnemyIntent();
+            }
             
             // Back to player turn
             this.currentTurn = 'player';
@@ -387,8 +414,15 @@ class Game {
                 this.player.hand.push(this.player.deck.shift());
             }
             
+            // Clear temporary effects
+            this.player.effects = this.player.effects.filter(effect => {
+                effect.duration--;
+                return effect.duration > 0;
+            });
+            
             this.updateUI();
-        }, 1500); // 1.5 second delay to show enemy turn
+            this.logMessage("--- Your turn begins ---");
+        }, 1000); // Shorter delay
     }
     
     opponentTurn() {
@@ -409,9 +443,11 @@ class Game {
         }
         
         // Handle position changes from enemy moves
-        if (move.type === 'takedown' && this.fightPosition === 'standing' && Math.random() > 0.3) {
-            this.fightPosition = 'ground';
-            this.logMessage(`${this.opponent.name} takes you down! Fight moves to the GROUND!`);
+        if (move.name === 'Single Leg' || move.name === 'Double Leg' || move.name === 'Body Slam' || move.name === 'Elite Takedown') {
+            if (this.fightPosition === 'standing' && Math.random() > 0.4) {
+                this.fightPosition = 'ground';
+                this.logMessage(`${this.opponent.name} takes you down! You're now on the GROUND!`);
+            }
         }
         
         if (damage > 0) {
@@ -582,27 +618,27 @@ class Game {
     
     generateRewardCards() {
         const allCards = [
-            { name: "Heavy Cross", type: "standup", cost: 3, damage: 14, description: "Powerful overhand punch", positions: ["standing"] },
-            { name: "Head Kick", type: "standup", cost: 4, damage: 16, description: "High risk, high reward", positions: ["standing"] },
-            { name: "Superman Punch", type: "standup", cost: 3, damage: 12, description: "Flashy jumping strike", positions: ["standing"] },
-            { name: "Double Jab", type: "standup", cost: 2, damage: 8, description: "Two quick punches", positions: ["standing"] },
-            { name: "Uppercut", type: "standup", cost: 2, damage: 11, description: "Rising punch to the chin", positions: ["standing"] },
+            // Striking cards
+            { name: "Heavy Cross", type: "strike", cost: 3, damage: 14, description: "Powerful overhand punch" },
+            { name: "Head Kick", type: "strike", cost: 4, damage: 16, description: "High risk, high reward" },
+            { name: "Superman Punch", type: "strike", cost: 3, damage: 12, description: "Flashy jumping strike" },
+            { name: "Double Jab", type: "strike", cost: 2, damage: 8, description: "Two quick punches" },
+            { name: "Uppercut", type: "strike", cost: 2, damage: 11, description: "Rising punch to the chin" },
+            { name: "Body Shot", type: "strike", cost: 2, damage: 9, description: "Heavy hit to the body" },
             
-            { name: "Hip Toss", type: "takedown", cost: 3, damage: 12, description: "Throws opponent down hard - Go to Ground", positions: ["standing"], effect: "takedown" },
-            { name: "Ankle Pick", type: "takedown", cost: 2, damage: 8, description: "Quick takedown attempt - Go to Ground", positions: ["standing"], effect: "takedown" },
-            { name: "Slam", type: "takedown", cost: 4, damage: 15, description: "Brutal takedown - Go to Ground", positions: ["standing"], effect: "takedown" },
-            { name: "Sweep", type: "takedown", cost: 2, damage: 9, description: "Trips opponent - Go to Ground", positions: ["standing"], effect: "takedown" },
+            // Ground game cards  
+            { name: "Ground Strike", type: "ground", cost: 2, damage: 10, description: "Strike while on the ground", requiresPosition: "ground" },
+            { name: "Submission", type: "ground", cost: 4, damage: 18, description: "High damage grappling", requiresPosition: "ground" },
+            { name: "Escape", type: "utility", cost: 1, damage: 3, description: "Get back to standing", effect: "standup", requiresPosition: "ground" },
             
-            { name: "Ground & Pound", type: "ground", cost: 2, damage: 9, description: "Powerful strikes from the ground", positions: ["ground"] },
-            { name: "Submission Hold", type: "ground", cost: 3, damage: 15, description: "High damage grappling move", positions: ["ground"] },
-            { name: "Escape Artist", type: "ground", cost: 1, damage: 2, description: "Get back to standing - Go to Standing", positions: ["ground"], effect: "standup" },
+            // Defense cards
+            { name: "Iron Guard", type: "defense", cost: 2, damage: 0, description: "Block 8 damage this turn", effect: "block_8" },
+            { name: "Perfect Counter", type: "strike", cost: 3, damage: 12, description: "Defensive counter attack" },
             
-            { name: "Clinch Strike", type: "both", cost: 3, damage: 10, description: "Works in any position", positions: ["standing", "ground"] },
-            { name: "Counter", type: "both", cost: 2, damage: 8, description: "Defensive attack", positions: ["standing", "ground"] },
-            
-            { name: "Focus", type: "neither", cost: 1, damage: 0, description: "Draw 2 cards", effect: "draw_2", positions: ["standing", "ground"] },
-            { name: "Meditation", type: "neither", cost: 0, damage: 0, description: "Restore 8 health", effect: "heal_8", positions: ["standing", "ground"] },
-            { name: "Power Stance", type: "neither", cost: 2, damage: 0, description: "Next attack deals +5 damage", effect: "power_up", positions: ["standing", "ground"] }
+            // Utility cards
+            { name: "Focus", type: "utility", cost: 1, damage: 0, description: "Gain 2 energy", effect: "gain_energy_2" },
+            { name: "Meditation", type: "utility", cost: 0, damage: 0, description: "Restore 8 health", effect: "heal_8" },
+            { name: "Adrenaline", type: "utility", cost: 0, damage: 0, description: "Draw 2 cards", effect: "draw_2" }
         ];
         
         // Select 3 random cards for reward

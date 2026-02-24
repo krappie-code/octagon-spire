@@ -46,6 +46,11 @@
         </header>
 
         <main id="game-board">
+            <div id="turn-indicator">
+                <div id="current-turn">YOUR TURN</div>
+                <div id="fight-position">STANDING</div>
+            </div>
+            
             <div id="combat-area">
                 <div id="player-area">
                     <div id="player-avatar">🥊</div>
@@ -57,6 +62,10 @@
                 <div id="opponent-area">
                     <div id="opponent-avatar">👊</div>
                     <div id="opponent-effects"></div>
+                    <div id="enemy-intent">
+                        <div id="intent-action">Preparing...</div>
+                        <div id="intent-damage">? DMG</div>
+                    </div>
                 </div>
             </div>
             

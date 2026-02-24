@@ -186,8 +186,16 @@ class Game {
         
         // Update enemy intent
         if (this.enemyIntent) {
-            document.getElementById('intent-action').textContent = this.enemyIntent.action;
-            document.getElementById('intent-damage').textContent = this.enemyIntent.damage > 0 ? `${this.enemyIntent.damage} DMG` : 'Special';
+            const intentActionEl = document.getElementById('intent-action');
+            const intentDamageEl = document.getElementById('intent-damage');
+            
+            if (intentActionEl && intentDamageEl) {
+                intentActionEl.textContent = this.enemyIntent.action;
+                intentDamageEl.textContent = this.enemyIntent.damage > 0 ? `${this.enemyIntent.damage} DMG` : 'Special';
+                console.log('Updated enemy intent UI:', this.enemyIntent.action, this.enemyIntent.damage); // Debug log
+            } else {
+                console.error('Enemy intent UI elements not found!'); // Debug error
+            }
         }
         
         // Update hand (filter based on position)
@@ -413,6 +421,7 @@ class Game {
     
     generateEnemyIntent() {
         const selectedMove = this.selectOpponentMove();
+        console.log('Generating enemy intent for:', selectedMove.name); // Debug log
         
         // Create enemy intent with descriptive action text
         let actionText = '';
@@ -456,6 +465,8 @@ class Game {
             description: description,
             move: selectedMove
         };
+        
+        console.log('Enemy intent set:', this.enemyIntent); // Debug log
     }
     
     selectOpponentMove() {
@@ -655,5 +666,6 @@ class Game {
 
 // Initialize game when page loads
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('🥊 Octagon Spire v2.0 - Core MMA Mechanics loaded!'); // Version indicator
     window.game = new Game();
 });

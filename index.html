@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Octagon Spire - MMA Card Fighter</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="game-container">
+        <header id="game-header">
+            <div id="player-stats">
+                <div class="stat-bar">
+                    <label>Health</label>
+                    <div class="bar-container">
+                        <div id="player-health-bar" class="health-bar"></div>
+                        <span id="player-health-text">100/100</span>
+                    </div>
+                </div>
+                <div class="stat-bar">
+                    <label>Energy</label>
+                    <div class="bar-container">
+                        <div id="player-energy-bar" class="energy-bar"></div>
+                        <span id="player-energy-text">3/3</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="fight-info">
+                <h2 id="opponent-name">Amateur Fighter</h2>
+                <p id="fight-round">Fight 1 of 5</p>
+            </div>
+            
+            <div id="opponent-stats">
+                <div class="stat-bar">
+                    <label>Health</label>
+                    <div class="bar-container">
+                        <div id="opponent-health-bar" class="health-bar"></div>
+                        <span id="opponent-health-text">60/60</span>
+                    </div>
+                </div>
+                <div class="opponent-type">
+                    <span id="opponent-type-text">Striker</span>
+                </div>
+            </div>
+        </header>
+
+        <main id="game-board">
+            <div id="combat-area">
+                <div id="player-area">
+                    <div id="player-avatar">🥊</div>
+                    <div id="player-effects"></div>
+                </div>
+                
+                <div id="vs-indicator">VS</div>
+                
+                <div id="opponent-area">
+                    <div id="opponent-avatar">👊</div>
+                    <div id="opponent-effects"></div>
+                </div>
+            </div>
+            
+            <div id="combat-log">
+                <div id="log-content">
+                    <p>Fight begins! Choose your cards wisely.</p>
+                </div>
+            </div>
+        </main>
+
+        <footer id="game-footer">
+            <div id="hand-container">
+                <div id="hand" class="card-container">
+                    <!-- Cards will be dynamically added here -->
+                </div>
+            </div>
+            
+            <div id="action-buttons">
+                <button id="end-turn-btn" class="action-btn">End Turn</button>
+                <button id="view-deck-btn" class="action-btn secondary">View Deck</button>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Modal for deck building -->
+    <div id="deck-modal" class="modal">
+        <div class="modal-content">
+            <h2>Choose New Cards</h2>
+            <p>Select cards to add to your deck after victory!</p>
+            <div id="card-choices" class="card-container">
+                <!-- New card choices appear here -->
+            </div>
+            <button id="confirm-cards-btn" class="action-btn">Confirm Selection</button>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>

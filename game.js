@@ -18,6 +18,9 @@ class Game {
         this.maxFights = 5;
         this.selectedCards = [];
         this.gamePhase = 'combat'; // 'combat', 'victory', 'defeat'
+        this.currentTurn = 'player'; // 'player' or 'enemy'
+        this.fightPosition = 'standing'; // 'standing' or 'ground'
+        this.enemyIntent = null; // { action, damage, description }
         
         this.initializeDeck();
         this.initializeOpponents();
@@ -26,16 +29,18 @@ class Game {
     }
     
     initializeDeck() {
-        // Starting deck - basic MMA moves
+        // Starting deck - basic MMA moves with position requirements
         const startingCards = [
-            { name: "Jab", type: "standup", cost: 1, damage: 6, description: "Quick straight punch" },
-            { name: "Jab", type: "standup", cost: 1, damage: 6, description: "Quick straight punch" },
-            { name: "Hook", type: "standup", cost: 2, damage: 10, description: "Powerful curved punch" },
-            { name: "Low Kick", type: "standup", cost: 2, damage: 8, description: "Targets opponent's legs" },
-            { name: "Double Leg", type: "takedown", cost: 2, damage: 7, description: "Takedown attempt" },
-            { name: "Guard", type: "neither", cost: 1, damage: 0, description: "Block 5 damage this turn", effect: "block_5" },
-            { name: "Rest", type: "neither", cost: 0, damage: 0, description: "Gain 1 energy", effect: "gain_energy_1" },
-            { name: "Sprawl", type: "takedown", cost: 1, damage: 4, description: "Counter takedown attempt" }
+            { name: "Jab", type: "standup", cost: 1, damage: 6, description: "Quick straight punch", positions: ["standing"] },
+            { name: "Jab", type: "standup", cost: 1, damage: 6, description: "Quick straight punch", positions: ["standing"] },
+            { name: "Hook", type: "standup", cost: 2, damage: 10, description: "Powerful curved punch", positions: ["standing"] },
+            { name: "Low Kick", type: "standup", cost: 2, damage: 8, description: "Targets opponent's legs", positions: ["standing"] },
+            { name: "Double Leg", type: "takedown", cost: 2, damage: 7, description: "Takedown attempt - Go to Ground", positions: ["standing"], effect: "takedown" },
+            { name: "Guard", type: "neither", cost: 1, damage: 0, description: "Block 5 damage this turn", effect: "block_5", positions: ["standing", "ground"] },
+            { name: "Rest", type: "neither", cost: 0, damage: 0, description: "Gain 1 energy", effect: "gain_energy_1", positions: ["standing", "ground"] },
+            { name: "Sprawl", type: "takedown", cost: 1, damage: 4, description: "Counter takedown attempt", positions: ["standing"] },
+            { name: "Ground Strike", type: "ground", cost: 1, damage: 5, description: "Strike from the ground", positions: ["ground"] },
+            { name: "Stand Up", type: "standup", cost: 2, damage: 3, description: "Get back to standing - Go to Standing", positions: ["ground"], effect: "standup" }
         ];
         
         this.player.deck = [...startingCards];
@@ -111,6 +116,11 @@ class Game {
         this.opponent = { ...this.opponents[this.currentFight - 1] };
         this.player.energy = this.player.maxEnergy;
         this.selectedCards = [];
+        this.currentTurn = 'player';
+        this.fightPosition = 'standing';
+        
+        // Generate initial enemy intent
+        this.generateEnemyIntent();
         
         this.drawHand();
         this.updateUI();
@@ -166,7 +176,21 @@ class Game {
         document.getElementById('opponent-health-text').textContent = `${this.opponent.health}/${this.opponent.maxHealth}`;
         document.getElementById('opponent-health-bar').style.width = `${(this.opponent.health / this.opponent.maxHealth) * 100}%`;
         
-        // Update hand
+        // Update turn indicator
+        document.getElementById('current-turn').textContent = this.currentTurn === 'player' ? 'YOUR TURN' : 'ENEMY TURN';
+        
+        // Update fight position
+        const positionElement = document.getElementById('fight-position');
+        positionElement.textContent = this.fightPosition.toUpperCase();
+        positionElement.className = this.fightPosition;
+        
+        // Update enemy intent
+        if (this.enemyIntent) {
+            document.getElementById('intent-action').textContent = this.enemyIntent.action;
+            document.getElementById('intent-damage').textContent = this.enemyIntent.damage > 0 ? `${this.enemyIntent.damage} DMG` : 'Special';
+        }
+        
+        // Update hand (filter based on position)
         this.renderHand();
     }
     
@@ -185,10 +209,19 @@ class Game {
         cardDiv.className = 'card';
         cardDiv.dataset.index = index;
         
-        // Check if card can be played
-        const canPlay = this.player.energy >= card.cost;
+        // Check if card can be played (energy + position requirements)
+        const hasEnergy = this.player.energy >= card.cost;
+        const hasPosition = !card.positions || card.positions.includes(this.fightPosition);
+        const canPlay = hasEnergy && hasPosition;
+        
         if (!canPlay) {
             cardDiv.classList.add('disabled');
+        }
+        
+        // Add position indicator if card has position requirements
+        let positionInfo = '';
+        if (card.positions && card.positions.length < 2) {
+            positionInfo = ` (${card.positions[0].toUpperCase()})`;
         }
         
         cardDiv.innerHTML = `
@@ -196,7 +229,7 @@ class Game {
                 <div class="card-cost">${card.cost}</div>
                 <div class="card-type ${card.type}">${card.type.toUpperCase()}</div>
             </div>
-            <div class="card-name">${card.name}</div>
+            <div class="card-name">${card.name}${positionInfo}</div>
             <div class="card-description">${card.description}</div>
             ${card.damage > 0 ? `<div class="card-damage">${card.damage} DMG</div>` : ''}
         `;
@@ -271,6 +304,14 @@ class Game {
                 this.player.energy = Math.min(this.player.maxEnergy, this.player.energy + 1);
                 this.logMessage("Gained 1 energy!");
                 break;
+            case 'takedown':
+                this.fightPosition = 'ground';
+                this.logMessage("Fight moved to the GROUND!");
+                break;
+            case 'standup':
+                this.fightPosition = 'standing';
+                this.logMessage("Fight moved to STANDING!");
+                break;
         }
     }
     
@@ -316,29 +357,39 @@ class Game {
     }
     
     endTurn() {
-        if (this.selectedCards.length === 0) {
-            this.logMessage("Select at least one card to play!");
-            return;
-        }
-        
-        // Opponent's turn
-        this.opponentTurn();
-        
-        // Reset for next turn
-        this.player.energy = this.player.maxEnergy;
-        this.selectedCards = [];
-        
-        // Draw new cards to fill hand
-        const cardsNeeded = 5 - this.player.hand.length;
-        for (let i = 0; i < cardsNeeded && this.player.deck.length > 0; i++) {
-            this.player.hand.push(this.player.deck.shift());
-        }
-        
+        // Allow ending turn even without playing cards (pass turn)
+        this.currentTurn = 'enemy';
         this.updateUI();
+        
+        // Brief pause to show enemy turn, then execute
+        setTimeout(() => {
+            this.opponentTurn();
+            
+            // Generate new enemy intent for next turn
+            this.generateEnemyIntent();
+            
+            // Back to player turn
+            this.currentTurn = 'player';
+            this.player.energy = this.player.maxEnergy;
+            this.selectedCards = [];
+            
+            // Draw new cards to fill hand
+            const cardsNeeded = 5 - this.player.hand.length;
+            for (let i = 0; i < cardsNeeded && this.player.deck.length > 0; i++) {
+                this.player.hand.push(this.player.deck.shift());
+            }
+            
+            this.updateUI();
+        }, 1500); // 1.5 second delay to show enemy turn
     }
     
     opponentTurn() {
-        const move = this.selectOpponentMove();
+        if (!this.enemyIntent) {
+            return;
+        }
+        
+        const move = this.enemyIntent.move;
+        this.logMessage(`${this.opponent.name} ${this.enemyIntent.description}...`);
         this.logMessage(`${this.opponent.name} uses ${move.name}!`);
         
         let damage = move.damage;
@@ -349,31 +400,112 @@ class Game {
             return;
         }
         
+        // Handle position changes from enemy moves
+        if (move.type === 'takedown' && this.fightPosition === 'standing' && Math.random() > 0.3) {
+            this.fightPosition = 'ground';
+            this.logMessage(`${this.opponent.name} takes you down! Fight moves to the GROUND!`);
+        }
+        
         if (damage > 0) {
             this.dealDamageToPlayer(damage);
         }
     }
     
+    generateEnemyIntent() {
+        const selectedMove = this.selectOpponentMove();
+        
+        // Create enemy intent with descriptive action text
+        let actionText = '';
+        let description = '';
+        
+        switch (selectedMove.name) {
+            case 'Jab':
+            case 'Wild Swing':
+            case 'Weak Jab':
+                actionText = '👊 Punch';
+                description = 'preparing to strike';
+                break;
+            case 'Heavy Haymaker':
+            case 'Championship Combo':
+                actionText = '💥 Power Strike';
+                description = 'winding up for big damage';
+                break;
+            case 'Single Leg':
+            case 'Double Leg':
+            case 'Basic Grapple':
+                actionText = '🤼 Takedown';
+                description = 'looking to take you down';
+                break;
+            case 'Body Slam':
+            case 'Elite Takedown':
+                actionText = '🤼 Power Slam';
+                description = 'preparing devastating takedown';
+                break;
+            case 'Perfect Defense':
+                actionText = '🛡️ Defense';
+                description = 'focusing on defense';
+                break;
+            default:
+                actionText = '⚔️ Attack';
+                description = 'preparing to strike';
+        }
+        
+        this.enemyIntent = {
+            action: actionText,
+            damage: selectedMove.damage,
+            description: description,
+            move: selectedMove
+        };
+    }
+    
     selectOpponentMove() {
-        // Simple AI: prefer moves that opponent is good at
+        // Enhanced AI with predictable patterns and some variation
         const availableMoves = this.opponent.moves;
         let weights = [];
+        
+        // Add some predictability based on opponent patterns
+        const turnsSinceStart = this.selectedCards.length; // rough turn counter
+        let preferredMoveType = null;
+        
+        // Each opponent has behavioral patterns
+        switch (this.opponent.style) {
+            case 'striker':
+                // Strikers prefer standup 70% of the time
+                preferredMoveType = Math.random() < 0.7 ? 'standup' : null;
+                break;
+            case 'grappler':
+                // Grapplers prefer takedown 70% of the time
+                preferredMoveType = Math.random() < 0.7 ? 'takedown' : null;
+                break;
+            case 'technical':
+                // Technical fighters mix it up but prefer counters when player is aggressive
+                if (this.selectedCards.length > 1) {
+                    preferredMoveType = 'both'; // counter moves
+                }
+                break;
+            case 'champion':
+                // Champion adapts based on health
+                if (this.opponent.health < this.opponent.maxHealth * 0.3) {
+                    preferredMoveType = 'power'; // go for broke
+                }
+                break;
+        }
         
         availableMoves.forEach(move => {
             let weight = 1;
             
-            // Champion uses special logic
-            if (this.opponent.style === 'champion') {
-                if (this.opponent.health < this.opponent.maxHealth * 0.3) {
-                    // Low health, prefer powerful attacks
-                    weight = move.damage > 15 ? 3 : 1;
-                }
-            } else if (this.opponent.style === 'striker' && move.type === 'standup') {
-                weight = 2;
-            } else if (this.opponent.style === 'grappler' && move.type === 'takedown') {
-                weight = 2;
-            } else if (this.opponent.style === 'technical') {
-                weight = 1.5; // Technical fighters are consistent
+            // Apply behavioral preferences
+            if (preferredMoveType && move.type === preferredMoveType) {
+                weight *= 3;
+            } else if (preferredMoveType === 'power' && move.damage > 15) {
+                weight *= 3;
+            }
+            
+            // Position-based preferences (we'll enhance this later)
+            if (this.fightPosition === 'standing' && move.type === 'standup') {
+                weight *= 1.3;
+            } else if (this.fightPosition === 'ground' && move.type === 'takedown') {
+                weight *= 1.3;
             }
             
             weights.push(weight);
@@ -439,24 +571,27 @@ class Game {
     
     generateRewardCards() {
         const allCards = [
-            { name: "Heavy Cross", type: "standup", cost: 3, damage: 14, description: "Powerful overhand punch" },
-            { name: "Head Kick", type: "standup", cost: 4, damage: 16, description: "High risk, high reward" },
-            { name: "Superman Punch", type: "standup", cost: 3, damage: 12, description: "Flashy jumping strike" },
-            { name: "Double Jab", type: "standup", cost: 2, damage: 8, description: "Two quick punches" },
-            { name: "Uppercut", type: "standup", cost: 2, damage: 11, description: "Rising punch to the chin" },
+            { name: "Heavy Cross", type: "standup", cost: 3, damage: 14, description: "Powerful overhand punch", positions: ["standing"] },
+            { name: "Head Kick", type: "standup", cost: 4, damage: 16, description: "High risk, high reward", positions: ["standing"] },
+            { name: "Superman Punch", type: "standup", cost: 3, damage: 12, description: "Flashy jumping strike", positions: ["standing"] },
+            { name: "Double Jab", type: "standup", cost: 2, damage: 8, description: "Two quick punches", positions: ["standing"] },
+            { name: "Uppercut", type: "standup", cost: 2, damage: 11, description: "Rising punch to the chin", positions: ["standing"] },
             
-            { name: "Hip Toss", type: "takedown", cost: 3, damage: 12, description: "Throws opponent down hard" },
-            { name: "Ankle Pick", type: "takedown", cost: 2, damage: 8, description: "Quick takedown attempt" },
-            { name: "Slam", type: "takedown", cost: 4, damage: 15, description: "Brutal takedown" },
-            { name: "Sweep", type: "takedown", cost: 2, damage: 9, description: "Trips opponent" },
+            { name: "Hip Toss", type: "takedown", cost: 3, damage: 12, description: "Throws opponent down hard - Go to Ground", positions: ["standing"], effect: "takedown" },
+            { name: "Ankle Pick", type: "takedown", cost: 2, damage: 8, description: "Quick takedown attempt - Go to Ground", positions: ["standing"], effect: "takedown" },
+            { name: "Slam", type: "takedown", cost: 4, damage: 15, description: "Brutal takedown - Go to Ground", positions: ["standing"], effect: "takedown" },
+            { name: "Sweep", type: "takedown", cost: 2, damage: 9, description: "Trips opponent - Go to Ground", positions: ["standing"], effect: "takedown" },
             
-            { name: "Clinch Strike", type: "both", cost: 3, damage: 10, description: "Works in any position" },
-            { name: "Submission", type: "takedown", cost: 4, damage: 18, description: "High damage grappling" },
-            { name: "Counter", type: "both", cost: 2, damage: 8, description: "Defensive attack" },
+            { name: "Ground & Pound", type: "ground", cost: 2, damage: 9, description: "Powerful strikes from the ground", positions: ["ground"] },
+            { name: "Submission Hold", type: "ground", cost: 3, damage: 15, description: "High damage grappling move", positions: ["ground"] },
+            { name: "Escape Artist", type: "ground", cost: 1, damage: 2, description: "Get back to standing - Go to Standing", positions: ["ground"], effect: "standup" },
             
-            { name: "Focus", type: "neither", cost: 1, damage: 0, description: "Draw 2 cards", effect: "draw_2" },
-            { name: "Meditation", type: "neither", cost: 0, damage: 0, description: "Restore 8 health", effect: "heal_8" },
-            { name: "Power Stance", type: "neither", cost: 2, damage: 0, description: "Next attack deals +5 damage", effect: "power_up" }
+            { name: "Clinch Strike", type: "both", cost: 3, damage: 10, description: "Works in any position", positions: ["standing", "ground"] },
+            { name: "Counter", type: "both", cost: 2, damage: 8, description: "Defensive attack", positions: ["standing", "ground"] },
+            
+            { name: "Focus", type: "neither", cost: 1, damage: 0, description: "Draw 2 cards", effect: "draw_2", positions: ["standing", "ground"] },
+            { name: "Meditation", type: "neither", cost: 0, damage: 0, description: "Restore 8 health", effect: "heal_8", positions: ["standing", "ground"] },
+            { name: "Power Stance", type: "neither", cost: 2, damage: 0, description: "Next attack deals +5 damage", effect: "power_up", positions: ["standing", "ground"] }
         ];
         
         // Select 3 random cards for reward
